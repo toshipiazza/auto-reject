@@ -67,13 +67,12 @@ public:
 
 int main(int argc, const char **argv) {
 
-#if 0
   CommonOptionsParser op(argc, argv, AutoRejectCategory);
   ClangTool Tool(op.getCompilations(), op.getSourcePathList());
   int result = Tool.run(newFrontendActionFactory<AutoRejectFrontendAction>().get());
   return result;
-#endif
 
+#if 0
   for (int i = 1; i < argc; ++i) {
     std::ifstream f(argv[i]);
     std::string content((std::istreambuf_iterator<char>(f)),
@@ -81,4 +80,5 @@ int main(int argc, const char **argv) {
     clang::tooling::runToolOnCode(new AutoRejectFrontendAction, content);
   }
   return 0;
+#endif
 }

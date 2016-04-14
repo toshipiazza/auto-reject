@@ -11,6 +11,9 @@
 #include "llvm/Support/CommandLine.h"
 
 #include <memory>
+#include <string>
+#include <fstream>
+#include <streambuf>
 
 using namespace std;
 using namespace clang;
@@ -28,6 +31,7 @@ public:
     : Context(Context) { }
   virtual bool VisitType(Type *t) {
     if (t->isUndeducedType()) {
+      /* TODO: line number? */
       outs() << "Found auto! Please don't use auto in your code!\n";
       return false;
     }
@@ -62,8 +66,19 @@ public:
 };
 
 int main(int argc, const char **argv) {
+
+#if 0
   CommonOptionsParser op(argc, argv, AutoRejectCategory);
   ClangTool Tool(op.getCompilations(), op.getSourcePathList());
   int result = Tool.run(newFrontendActionFactory<AutoRejectFrontendAction>().get());
   return result;
+#endif
+
+  for (int i = 1; i < argc; ++i) {
+    std::ifstream f(argv[i]);
+    std::string content((std::istreambuf_iterator<char>(f)),
+                        (std::istreambuf_iterator<char>()));
+    clang::tooling::runToolOnCode(new AutoRejectFrontendAction, content);
+  }
+  return 0;
 }

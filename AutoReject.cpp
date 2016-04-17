@@ -28,14 +28,23 @@ class AutoRejectVisitor
 public:
   explicit AutoRejectVisitor(ASTContext *Context)
     : Context(Context) { }
-  bool VisitTypeDecl(TypeDecl *Declaration) {
+  bool VisitValueDecl(ValueDecl *Declaration) {
     FullSourceLoc FullLocation = Context->getFullLoc(Declaration->getLocStart());
-    /* we only want to analyze non-system-file type declarations */
-    if (FullLocation.isValid() &&
-          !FullLocation.isInSystemHeader()) {
-      Declaration->dump();
+    if (!FullLocation.isValid()) {
+      return true;
+    } else if (FullLocation.isInSystemHeader()) {
+      /* we don't care about system headers containing auto */
+      return true;
+    } else if (!Declaration->getType().getTypePtr()->getContainedAutoType()) {
+      /* if the declaration had no auto type, we don't care */
+      return true;
     }
-    return true;
+
+    errs() << "Found declaration of auto at "
+           << FullLocation.getManager().getFilename(FullLocation) << " "
+           << FullLocation.getSpellingLineNumber() << ":"
+           << FullLocation.getSpellingColumnNumber() << "\n";
+    return false;
   }
 private:
   ASTContext *Context;
@@ -45,10 +54,10 @@ class AutoRejectConsumer : public ASTConsumer {
 public:
   explicit AutoRejectConsumer(ASTContext *Context)
     : visitor(Context) { }
-
   virtual void HandleTranslationUnit(ASTContext &Context) {
     visitor.TraverseDecl(Context.getTranslationUnitDecl());
   }
+
 private:
   AutoRejectVisitor visitor;
 };

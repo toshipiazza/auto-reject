@@ -21,3 +21,20 @@ $ cmake --build . --target AutoRejectPlugin
 
 ### Linux
 ... TODO
+
+## How To Run
+
+```
+$ cat should-not-ignore-auto.cpp
+#include <iostream>
+
+int
+main(void)
+{
+  auto i = 0;
+  std::cout << i << std::endl;
+  return 0;
+}
+$ bin\clang -Xclang -load -Xclang bin\AutoRejectPlugin.dll -Xclang -plugin -Xclang -auto-reject -Wall -std=c++11 -c should-not-ignore-auto.cpp
+Found declaration of auto at should-not-ignore-auto.cpp 6:2
+```

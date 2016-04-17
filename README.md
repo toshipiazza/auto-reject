@@ -4,17 +4,20 @@ for example in the case of an Academic setting, where the
 use of auto might hinder learning.
 
 ## How To Build
-Assuming you already have llvm and clang checked out,
+
+### Windows
+
+Note: must use MinGW-w64 to compile, not just MinGW.
+MSVC++ doesn't work either
 
 ```
-cd llvm/tools/clang/tools
-git clone https://github.com/toshipiazza/auto-reject
+$ cd llvm/tools/clang/examples
+$ git clone https://github.com/toshipiazza/auto-reject
+$ echo "add_subdirectory(auto-reject) >> CMakeLists.txt"
+$ mkdir ../../../build && cd ../../../build
+$ cmake .. -G"MinGW Makefiles" -DBUILD_SHARED_LIBS=On # play with this...
+$ cmake --build . --target AutoRejectPlugin
 ```
 
-Edit the `CMakeLists.txt` in `llvm/tools/clang/examples` to
-`add_clang_subdirectory` on auto-reject, them build the
-top level project.
-
-## TODO
-Make this project general, to try to catch and fail arbitrary
-C++ features, like lambda functions or template metaprogramming.
+### Linux
+... TODO

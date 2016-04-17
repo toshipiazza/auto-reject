@@ -9,6 +9,7 @@
 #include "clang/Tooling/CommonOptionsParser.h"
 #include "clang/Tooling/Tooling.h"
 #include "llvm/Support/CommandLine.h"
+#include "clang/Frontend/FrontendPluginRegistry.h"
 
 #include <memory>
 #include <string>
@@ -21,19 +22,18 @@ using namespace clang::driver;
 using namespace clang::tooling;
 using namespace llvm;
 
-static cl::OptionCategory AutoRejectCategory("Fails the build if auto is detected");
-
 /* when we see a type declaration, vet it for auto */
 class AutoRejectVisitor
  : public RecursiveASTVisitor<AutoRejectVisitor> {
 public:
   explicit AutoRejectVisitor(ASTContext *Context)
     : Context(Context) { }
-  virtual bool VisitType(Type *t) {
-    if (t->isUndeducedType()) {
-      /* TODO: line number? */
-      outs() << "Found auto! Please don't use auto in your code!\n";
-      return false;
+  bool VisitTypeDecl(TypeDecl *Declaration) {
+    FullSourceLoc FullLocation = Context->getFullLoc(Declaration->getLocStart());
+    /* we only want to analyze non-system-file type declarations */
+    if (FullLocation.isValid() &&
+          !FullLocation.isInSystemHeader()) {
+      Declaration->dump();
     }
     return true;
   }
@@ -41,44 +41,30 @@ private:
   ASTContext *Context;
 };
 
-/* just recurse through every declaration we see */
 class AutoRejectConsumer : public ASTConsumer {
 public:
   explicit AutoRejectConsumer(ASTContext *Context)
     : visitor(Context) { }
 
-  virtual bool HandleTopLevelDecl(DeclGroupRef DG) {
-    for (DeclGroupRef::iterator i = DG.begin(), e = DG.end(); i != e; i++) {
-      Decl *D = *i;
-      visitor.TraverseDecl(D);
-    }
-    return true; 
+  virtual void HandleTranslationUnit(ASTContext &Context) {
+    visitor.TraverseDecl(Context.getTranslationUnitDecl());
   }
 private:
   AutoRejectVisitor visitor;
 };
 
-class AutoRejectFrontendAction : public ASTFrontendAction {
+class AutoRejectFrontendAction : public PluginASTAction {
 public:
-  virtual std::unique_ptr<ASTConsumer> CreateASTConsumer(CompilerInstance &CI, StringRef file) {
-    return std::unique_ptr<ASTConsumer>(new AutoRejectConsumer(&CI.getASTContext()));
+  virtual std::unique_ptr<ASTConsumer> CreateASTConsumer(CompilerInstance &CI,
+                                                         StringRef file) {
+    return std::unique_ptr<ASTConsumer>(
+        new AutoRejectConsumer(&CI.getASTContext()));
+  }
+  virtual bool ParseArgs(const CompilerInstance &CI,
+                         const std::vector<std::string>& args) {
+    return true;
   }
 };
 
-int main(int argc, const char **argv) {
-
-  CommonOptionsParser op(argc, argv, AutoRejectCategory);
-  ClangTool Tool(op.getCompilations(), op.getSourcePathList());
-  int result = Tool.run(newFrontendActionFactory<AutoRejectFrontendAction>().get());
-  return result;
-
-#if 0
-  for (int i = 1; i < argc; ++i) {
-    std::ifstream f(argv[i]);
-    std::string content((std::istreambuf_iterator<char>(f)),
-                        (std::istreambuf_iterator<char>()));
-    clang::tooling::runToolOnCode(new AutoRejectFrontendAction, content);
-  }
-  return 0;
-#endif
-}
+static FrontendPluginRegistry::Add<AutoRejectFrontendAction> X("-auto-reject",
+    "Rejects any code that uses auto");

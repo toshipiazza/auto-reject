@@ -1,22 +1,10 @@
-set( LLVM_LINK_COMPONENTS
-  ${LLVM_TARGETS_TO_BUILD}
-  Option
-  Support
-  )
+add_llvm_loadable_module(AutoRejectPlugin AutoReject.cpp)
 
-add_clang_executable(auto-reject
-  AutoReject.cpp
-  )
-
-target_link_libraries(auto-reject
-  clangAST
-  clangBasic
-  clangDriver
-  clangFrontend
-  clangRewriteFrontend
-  clangStaticAnalyzerFrontend
-  clangTooling
-  )
-
-install(TARGETS auto-reject
-  RUNTIME DESTINATION bin)
+if(LLVM_ENABLE_PLUGINS AND (WIN32 OR CYGWIN))
+  target_link_libraries(AutoRejectPlugin ${cmake_2_8_12_PRIVATE}
+    clangAnalysis
+    clangAST
+    clangFrontend
+    clangStaticAnalyzerCore
+    LLVMSupport)
+endif()

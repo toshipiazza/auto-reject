@@ -1,9 +1,9 @@
-#include <string>
 #include "test.h"
+
+#include <iostream>
 
 int main(void)
 {
     auto i = foo();
-    std::string j = foo();
     return 0;
 }

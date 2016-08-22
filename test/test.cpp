@@ -2,5 +2,9 @@
 
 int foo(void)
 {
-    return 100;
+    int x = 0;
+    int i[] = { 1, 2, 3, 4, 5 };
+    for (int j : i)
+        x += j;
+    return x;
 }

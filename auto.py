@@ -3,29 +3,35 @@
 from __future__ import print_function
 import clang.cindex
 
-# TODO: detect range-based for loops
+# TODO: determine system headers
 
 def get_diag_info(diag):
-    return { 'severity' : diag.severity,
-             'location' : diag.location,
-             'spelling' : diag.spelling,
-             'ranges' : diag.ranges,
-             'fixits' : diag.fixits }
+    return "{} [line={}, col={}]".format(diag.spelling,
+           diag.location.line, diag.location.column)
 
-def find_auto(node):
-    """ Find all auto-declared variables
+def visitor(node, auto, rfor):
+    """ Find all auto-declared variables and range-based for loops
     """
-    if node.type.kind == clang.cindex.TypeKind.AUTO:
-        print('Found auto declaration: [line={}, col={}]'.format(
-              node.location.line, node.location.column))
+    try:
+        if auto == True and node.kind.is_declaration() and \
+           node.type.kind == clang.cindex.TypeKind.AUTO:
+            # detect auto
+            print('Found auto declaration: {}:{}:{}'.format(
+                  node.location.file.name, node.location.line, node.location.column))
+        if rfor == True and node.kind.is_statement() and \
+           node.kind == clang.cindex.CursorKind.CXX_FOR_RANGE_STMT:
+            # detect ranged-based for loops
+            print('Found range-based for loop: {}:{}:{}'.format(
+                  node.location.file.name, node.location.line, node.location.column))
+    except ValueError:
+        # unfortunately, the python bindings are incomplete and may throw ValueError
+        # when we encounter a CursorKind which has not been explicitly written into the
+        # bindings. We silently ignore them because they are not relevant for our use
+        # case.
+        pass
     # recurse for children of this node
     for c in node.get_children():
-        find_auto(c)
-
-def find_rfor(node):
-    """ Find all range-based for loops
-    """
-    pass
+        visitor(c, auto, rfor)
 
 if __name__=='__main__':
     import argparse
@@ -39,7 +45,8 @@ if __name__=='__main__':
 
     index = clang.cindex.Index.create()
     # we allow c++11 by default
-    tu = index.parse(None, ['-std=c++11'] + args)
+    default_args = ['-isystem', '/usr/lib/clang/3.9/include/', '-std=c++11']
+    tu = index.parse(None, default_args + args)
     pprint(('diags', map(get_diag_info, tu.diagnostics)))
-    if opts.auto: find_auto(tu.cursor)
-    if opts.rfor: find_rfor(tu.cursor)
+    if opts.auto or opts.rfor:
+        visitor(tu.cursor, opts.auto, opts.rfor)

@@ -1,21 +1,20 @@
 #!/usr/bin/env python
 
 from __future__ import print_function
-from ctypes import cdll
 import clang.cindex
-import os
 
-# unfortunately we heavily depend on clang 3.9
-# FIXME: rely less heavily on user version
 GLOBAL_INCLUDE_DIRECTORY='/usr/lib/clang/3.9/include/'
-LD_LIBRARY_PATH='/usr/lib/x86_64-linux-gnu/'
-LD_LIBCLANG='libclang-3.9.so'
 
-# pull in the isInSystemHeader() function
-# FIXME: use format in clang.cindex, or otherwise hook into it in some form
-lib = cdll.LoadLibrary(LD_LIBRARY_PATH + LD_LIBCLANG)
-def clang_Location_isInSystemHeader(loc):
-    return lib.clang_Location_isInSystemHeader(loc)
+def insert_into_function_list(method):
+    """ Insert a clang C method into the method list which gets lazy loaded
+    """
+    # TODO: does this need to be placed into the functionList in alphabetical order?
+    clang.cindex.functionList.append(method)
+
+# We load the cindex isInSystemHeader method which is not provided by default by the
+# default clang bindings.
+insert_into_function_list(
+        ("clang_Location_isInSystemHeader", [clang.cindex.SourceLocation]))
 
 def get_diag_info(diag):
     return "{}:{}:{} {} ".format(diag.location.file.name,
@@ -26,7 +25,7 @@ def visitor(node, auto, rfor):
     """
     try:
         # ignore system headers...
-        if clang_Location_isInSystemHeader(node.location) == 0:
+        if clang.cindex.conf.lib.clang_Location_isInSystemHeader(node.location) == 0:
             if auto == True and node.kind.is_declaration() and \
                node.type.kind == clang.cindex.TypeKind.AUTO:
                 # detect auto

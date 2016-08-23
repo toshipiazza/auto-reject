@@ -1,6 +1,9 @@
 #include "test.h"
 
 #include <iostream>
+#include <string>
+#include <vector>
+#include <chrono>
 
 int main(void)
 {

@@ -5,16 +5,30 @@ import clang.cindex
 
 GLOBAL_INCLUDE_DIRECTORY='/usr/lib/clang/3.9/include/'
 
+def main(opts, args):
+    from pprint import pprint
+
+    # We load the cindex isInSystemHeader method which is not provided by default by the
+    # default clang bindings.
+    insert_into_function_list(
+            ("clang_Location_isInSystemHeader", [clang.cindex.SourceLocation]))
+
+    index = clang.cindex.Index.create()
+    # we allow c++11 by default, and we spoof the system include directory.
+    default_args = ['-isystem', GLOBAL_INCLUDE_DIRECTORY, '-std=c++11']
+    tu = index.parse(None, default_args + args)
+    diags = map(get_diag_info, tu.diagnostics)
+    if len(diags) > 0:
+        print("errors found: ", end='')
+        pprint(map(get_diag_info, tu.diagnostics))
+    if opts.auto or opts.rfor:
+        visitor(tu.cursor, opts.auto, opts.rfor)
+
 def insert_into_function_list(method):
     """ Insert a clang C method into the method list which gets lazy loaded
     """
     # TODO: does this need to be placed into the functionList in alphabetical order?
     clang.cindex.functionList.append(method)
-
-# We load the cindex isInSystemHeader method which is not provided by default by the
-# default clang bindings.
-insert_into_function_list(
-        ("clang_Location_isInSystemHeader", [clang.cindex.SourceLocation]))
 
 def get_diag_info(diag):
     return "{}:{}:{} {} ".format(diag.location.file.name,
@@ -37,7 +51,7 @@ def visitor(node, auto, rfor):
                 print('Found range-based for loop: {}:{}:{}'.format(
                       node.location.file.name, node.location.line, node.location.column))
     except ValueError:
-        # unfortunately, the python bindings are incomplete and may throw ValueError
+        # Unfortunately, the python bindings are incomplete and may throw ValueError
         # when we encounter a CursorKind which has not been explicitly written into the
         # bindings. We silently ignore them because they are not relevant for our use
         # case.
@@ -48,18 +62,9 @@ def visitor(node, auto, rfor):
 
 if __name__=='__main__':
     import argparse
-    from pprint import pprint
     parser = argparse.ArgumentParser(
             description='vet C++11 file for auto and range-based for loop usages')
     parser.add_argument('--auto', help='reject auto declarations', action="store_true")
     parser.add_argument('--rfor', help='reject range-based for loops',
                         action="store_true")
-    (opts, args) = parser.parse_known_args()
-
-    index = clang.cindex.Index.create()
-    # we allow c++11 by default, and we spoof the system include directory.
-    default_args = ['-isystem', GLOBAL_INCLUDE_DIRECTORY, '-std=c++11']
-    tu = index.parse(None, default_args + args)
-    pprint(('diags', map(get_diag_info, tu.diagnostics)))
-    if opts.auto or opts.rfor:
-        visitor(tu.cursor, opts.auto, opts.rfor)
+    main(*parser.parse_known_args())
